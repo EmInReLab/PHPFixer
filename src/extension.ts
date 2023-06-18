@@ -61,6 +61,8 @@ async function writeFile(filePath: string, lines:string[]):Promise<void> {
 
 async function sendRequestToGeneratePatches(fileName:string, startLine: number, endLine:number, numOfCandidatePatches:number, fileLines:string[]):Promise<string[]> {
 	const url = vscode.workspace.getConfiguration('PHPFixer').get('apiUrl', "");
+	// vscode.window.showErrorMessage(`url ${url}`);
+	
 	const requestData = {
 		startLine:startLine,
 		endLine:endLine,
@@ -95,13 +97,21 @@ export function activate(context: vscode.ExtensionContext) {
 			if (workspaceFolders && workspaceFolders.length > 0) {
 				const projectDir = workspaceFolders[0].uri.fsPath;
 
-				vscode.window.setStatusBarMessage(`Start running tests`);
 				const originalFileLines = await readFile(activeFilePath);
+				const numOfCandidatePatches = config.get('numOfCandidatePatches', 5);
 
-				const numOfCandidatePatches = config.get('numOfCandidatePatches', 5)
-				const patchList = await sendRequestToGeneratePatches(activeFilePath, startLine, endLine,  numOfCandidatePatches, originalFileLines);
+				vscode.window.setStatusBarMessage(`Generating patches`);
+				const fileName = activeFilePath.split("\\").pop();
+
+				/* @ts-ignore */
+				// vscode.window.showErrorMessage(fileName);
+
+				/* @ts-ignore */
+				const patchList = await sendRequestToGeneratePatches(fileName, startLine, endLine,  numOfCandidatePatches, originalFileLines);
+				await fs.writeFile(projectDir+'/phpfixer-log.txt', 'Candidate Patches \n'+patchList.join('\n'), 'utf8');
+
 				
-
+				vscode.window.setStatusBarMessage(`Start running tests`);
 				const plasiblePatches: string[] = [];
 				for (let i = 0; i < patchList.length; i++){
 					try {
@@ -129,7 +139,9 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 					const modifiedLines = [...originalFileLines.slice(0, startLine - 1), concatenatedPatchList, ...originalFileLines.slice(endLine)];
 					await writeFile(activeFilePath, modifiedLines);
-					vscode.window.showInformationMessage(`Found ${plasiblePatches.length} plasible ${plasiblePatches.length==1?'patches':'patche'}`);
+					vscode.window.showInformationMessage(`Found ${plasiblePatches.length} plasible ${plasiblePatches.length == 1 ? 'patches' : 'patche'}`);
+
+					await fs.appendFile(projectDir+'/phpfixer-log.txt', '\n\nPlausible Patches \n'+plasiblePatches.join('\n'), 'utf8');
 				}
 				else {
 					await writeFile(activeFilePath, originalFileLines);
