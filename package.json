@@ -1,7 +1,7 @@
 {
     "name": "phpfixer",
     "displayName": "PHPFixer",
-    "description": "",
+    "description": "VS code extension for php logical bug fixing",
     "version": "0.0.1",
     "repository": {
         "type": "git",
@@ -21,7 +21,7 @@
             "properties": {
                 "PHPFixer.apiUrl": {
                     "type": "string",
-                    "default": "https://9a47-104-199-198-216.ngrok.io/",
+                    "default": "http://localhost:8000/",
                     "description": "API URL for generate candidate patches"
                 },
                 "PHPFixer.numOfCandidatePatches": {
@@ -54,7 +54,8 @@
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js"
+        "test": "node ./out/test/runTest.js",
+        "build": "vsce package"
     },
     "devDependencies": {
         "@types/glob": "^8.1.0",
