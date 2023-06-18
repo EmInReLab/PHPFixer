@@ -34,7 +34,7 @@
         "commands": [
             {
                 "command": "phpfixer.fix-php",
-                "title": "Fix Line",
+                "title": "Fix PHP Bug",
                 "category": "PHP Fixer"
             }
         ],
@@ -43,7 +43,7 @@
                 {
                     "command": "phpfixer.fix-php",
                     "when": "resourceLangId == php && editorTextFocus",
-                    "title": "Fix Line"
+                    "title": "Fix PHP Bug"
                 }
             ]
         }
