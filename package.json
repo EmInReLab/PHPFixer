@@ -28,6 +28,11 @@
                     "type": "number",
                     "default": 5,
                     "description": "Number of Candidate patches"
+                },
+                "PHPFixer.isStopFirstPlausiblePatch": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "After finding a first plausible, stop running test cases."
                 }
             }
         },
@@ -35,6 +40,11 @@
             {
                 "command": "phpfixer.fix-php",
                 "title": "Fix PHP Bug",
+                "category": "PHP Fixer"
+            },
+            {
+                "command": "phpfixer.cancelTestRunning",
+                "title": "Cancel Test Running",
                 "category": "PHP Fixer"
             }
         ],
@@ -44,6 +54,11 @@
                     "command": "phpfixer.fix-php",
                     "when": "resourceLangId == php && editorTextFocus",
                     "title": "Fix PHP Bug"
+                },
+                {
+                    "command": "phpfixer.cancelTestRunning",
+                    "when": "resourceLangId == php && editorTextFocus",
+                    "title": "Cancel Test Running"
                 }
             ]
         }

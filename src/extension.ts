@@ -80,8 +80,12 @@ async function sendRequestToGeneratePatches(fileName:string, startLine: number, 
 	}
   }
 
+
+let cancellationToken: boolean = false;
+
 export function activate(context: vscode.ExtensionContext) {
 	let disposable = vscode.commands.registerCommand('phpfixer.fix-php', async () => {
+
 		const config = vscode.workspace.getConfiguration('PHPFixer');
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
@@ -128,17 +132,23 @@ export function activate(context: vscode.ExtensionContext) {
 					vscode.window.setStatusBarMessage(`Start running tests`);
 					const plasiblePatches: string[] = [];
 					for (let i = 0; i < patchList.length; i++){
-						try {
-							vscode.window.setStatusBarMessage(`Running tests patch ${i+1}/${patchList.length}`);
-							await modifyFileWithPatch(activeFilePath, startLine, endLine, patchList[i]);
-							const testResponse = child_process.execSync(testCommand, { cwd: projectDir, encoding: 'utf-8' });
-							if (!testResponse.includes('ERRORS!') && !testResponse.includes('FAILURES!') && testResponse.includes('OK')) {
-								plasiblePatches.push(patchList[i]);
+						if (cancellationToken || (config.get('isStopFirstPlausiblePatch', false) && plasiblePatches.length > 0)) {
+							cancellationToken = false;
+							break;
+						}
+						else {
+							try {
+								vscode.window.setStatusBarMessage(`Running tests patch ${i+1}/${patchList.length}`);
+								await modifyFileWithPatch(activeFilePath, startLine, endLine, patchList[i]);
+								const testResponse = child_process.execSync(testCommand, { cwd: projectDir, encoding: 'utf-8' });
+								if (!testResponse.includes('ERRORS!') && !testResponse.includes('FAILURES!') && testResponse.includes('OK')) {
+									plasiblePatches.push(patchList[i]);
+								}
+		
+							} catch (error: any) {
+								console.error(`failed to run test cases: ${error.message}`);
+								// vscode.window.showErrorMessage(`failed to run test cases: ${error.message}`);
 							}
-	
-						} catch (error: any) {
-							console.error(`failed to run test cases: ${error.message}`);
-							// vscode.window.showErrorMessage(`failed to run test cases: ${error.message}`);
 						}
 					}
 	
@@ -168,6 +178,12 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposable);
+	
+	// Register a command to cancel the long-running command
+	disposable = vscode.commands.registerCommand('phpfixer.cancelTestRunning', () => {
+		// Cancel the command if it is running
+		cancellationToken = true;
+	});
 }
 
 // This method is called when your extension is deactivated
