@@ -26,7 +26,7 @@
                 },
                 "PHPFixer.numOfCandidatePatches": {
                     "type": "number",
-                    "default": 5,
+                    "default": 3,
                     "description": "Number of Candidate patches"
                 }
             }

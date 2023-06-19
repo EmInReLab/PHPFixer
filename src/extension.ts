@@ -81,9 +81,8 @@ async function sendRequestToGeneratePatches(fileName:string, startLine: number, 
   }
 
 export function activate(context: vscode.ExtensionContext) {
-	const config = vscode.workspace.getConfiguration('PHPFixer');
-
 	let disposable = vscode.commands.registerCommand('phpfixer.fix-php', async () => {
+		const config = vscode.workspace.getConfiguration('PHPFixer');
 		const activeEditor = vscode.window.activeTextEditor;
 		if (activeEditor) {
 			const selection = activeEditor.selection;
@@ -92,60 +91,66 @@ export function activate(context: vscode.ExtensionContext) {
 
 			const activeDocument = activeEditor.document;
 			const activeFilePath = activeDocument.fileName;
+			const fileName = activeFilePath.split("\\").pop();
 
 			const workspaceFolders = vscode.workspace.workspaceFolders;
-			if (workspaceFolders && workspaceFolders.length > 0) {
+			if (workspaceFolders && workspaceFolders.length > 0 && fileName) {
 				const projectDir = workspaceFolders[0].uri.fsPath;
+				const testCommand = 'composer tests tests/' + fileName.replace('.php', 'Test.php')
 
-				const originalFileLines = await readFile(activeFilePath);
-				const numOfCandidatePatches = config.get('numOfCandidatePatches', 5);
-
-				vscode.window.setStatusBarMessage(`Generating patches`);
-				const fileName = activeFilePath.split("\\").pop();
-
-				/* @ts-ignore */
-				// vscode.window.showErrorMessage(fileName);
-
-				/* @ts-ignore */
-				const patchList = await sendRequestToGeneratePatches(fileName, startLine, endLine,  numOfCandidatePatches, originalFileLines);
-				await fs.writeFile(projectDir+'/phpfixer-log.txt', 'Candidate Patches \n'+patchList.join('\n'), 'utf8');
-
-				
-				vscode.window.setStatusBarMessage(`Start running tests`);
-				const plasiblePatches: string[] = [];
-				for (let i = 0; i < patchList.length; i++){
-					try {
-						vscode.window.setStatusBarMessage(`Running tests patch ${i+1}`);
-						await modifyFileWithPatch(activeFilePath, startLine, endLine, patchList[i]);
-						const testResponse = child_process.execSync('composer tests', { cwd: projectDir, encoding: 'utf-8' });
-						if (!testResponse.includes('ERRORS!') && !testResponse.includes('FAILURES!') && testResponse.includes('OK')) {
-							plasiblePatches.push(patchList[i]);
-						}
-
-					} catch (error: any) {
-						console.error(`failed to run test cases: ${error.message}`);
-						// vscode.window.showErrorMessage(`failed to run test cases: ${error.message}`);
-					}
-				}
-
-				if (plasiblePatches.length > 0) {
-					const numOfLeadingSpaces = originalFileLines[startLine - 1].length - originalFileLines[startLine - 1].trimStart().length
-					let concatenatedPatchList = ' '.repeat(numOfLeadingSpaces) + '// Patch 1 \n' + ' '.repeat(numOfLeadingSpaces) + plasiblePatches[0]
-					if (plasiblePatches.length > 1) {
-						for (let i = 1; i < plasiblePatches.length; i++){
-							concatenatedPatchList += '\n\n';
-							concatenatedPatchList += ' '.repeat(numOfLeadingSpaces) + `// Patch ${i+1} \n` + ' '.repeat(numOfLeadingSpaces) + plasiblePatches[i];
-						}
-					}
-					const modifiedLines = [...originalFileLines.slice(0, startLine - 1), concatenatedPatchList, ...originalFileLines.slice(endLine)];
-					await writeFile(activeFilePath, modifiedLines);
-					vscode.window.showInformationMessage(`Found ${plasiblePatches.length} plasible ${plasiblePatches.length == 1 ? 'patches' : 'patche'}`);
-
-					await fs.appendFile(projectDir+'/phpfixer-log.txt', '\n\nPlausible Patches \n'+plasiblePatches.join('\n'), 'utf8');
+				// run test for existing patch
+				const testResponse = child_process.execSync(testCommand, { cwd: projectDir, encoding: 'utf-8' });
+				if (!testResponse.includes('ERRORS!') && !testResponse.includes('FAILURES!') && testResponse.includes('OK')) {
+					vscode.window.showInformationMessage(`Can not identify a bug your code. please update your test cases.`);
 				}
 				else {
-					await writeFile(activeFilePath, originalFileLines);
-					vscode.window.showErrorMessage(`Can not find a plasible patch`);
+					const originalFileLines = await readFile(activeFilePath);
+					const numOfCandidatePatches = config.get('numOfCandidatePatches', 5);
+	
+					vscode.window.setStatusBarMessage(`Generating patches`);
+	
+	
+					/* @ts-ignore */
+					const patchList = await sendRequestToGeneratePatches(fileName, startLine, endLine,  numOfCandidatePatches, originalFileLines);
+					await fs.writeFile(projectDir+'/phpfixer-log.txt', 'Candidate Patches \n'+patchList.join('\n'), 'utf8');
+	
+					
+					vscode.window.setStatusBarMessage(`Start running tests`);
+					const plasiblePatches: string[] = [];
+					for (let i = 0; i < patchList.length; i++){
+						try {
+							vscode.window.setStatusBarMessage(`Running tests patch ${i+1}/${patchList.length}`);
+							await modifyFileWithPatch(activeFilePath, startLine, endLine, patchList[i]);
+							const testResponse = child_process.execSync(testCommand, { cwd: projectDir, encoding: 'utf-8' });
+							if (!testResponse.includes('ERRORS!') && !testResponse.includes('FAILURES!') && testResponse.includes('OK')) {
+								plasiblePatches.push(patchList[i]);
+							}
+	
+						} catch (error: any) {
+							console.error(`failed to run test cases: ${error.message}`);
+							// vscode.window.showErrorMessage(`failed to run test cases: ${error.message}`);
+						}
+					}
+	
+					if (plasiblePatches.length > 0) {
+						const numOfLeadingSpaces = originalFileLines[startLine - 1].length - originalFileLines[startLine - 1].trimStart().length
+						let concatenatedPatchList = ' '.repeat(numOfLeadingSpaces) + '// Patch 1 \n' + ' '.repeat(numOfLeadingSpaces) + plasiblePatches[0]
+						if (plasiblePatches.length > 1) {
+							for (let i = 1; i < plasiblePatches.length; i++){
+								concatenatedPatchList += '\n\n';
+								concatenatedPatchList += ' '.repeat(numOfLeadingSpaces) + `// Patch ${i+1} \n` + ' '.repeat(numOfLeadingSpaces) + plasiblePatches[i];
+							}
+						}
+						const modifiedLines = [...originalFileLines.slice(0, startLine - 1), concatenatedPatchList, ...originalFileLines.slice(endLine)];
+						await writeFile(activeFilePath, modifiedLines);
+						vscode.window.showInformationMessage(`Found ${plasiblePatches.length} plasible ${plasiblePatches.length == 1 ? 'patches' : 'patche'}`);
+	
+						await fs.appendFile(projectDir+'/phpfixer-log.txt', '\n\nPlausible Patches \n'+plasiblePatches.join('\n'), 'utf8');
+					}
+					else {
+						await writeFile(activeFilePath, originalFileLines);
+						vscode.window.showErrorMessage(`Can not find a plasible patch`);
+					}
 				}
 				vscode.window.setStatusBarMessage('');
 			}
