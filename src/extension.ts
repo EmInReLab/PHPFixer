@@ -94,12 +94,22 @@ export function activate(context: vscode.ExtensionContext) {
 			const fileName = activeFilePath.split("\\").pop();
 
 			const workspaceFolders = vscode.workspace.workspaceFolders;
-			if (workspaceFolders && workspaceFolders.length > 0 && fileName) {
+			if (workspaceFolders && workspaceFolders.length > 0) {
 				const projectDir = workspaceFolders[0].uri.fsPath;
+
+				/* @ts-ignore */
 				const testCommand = 'composer tests tests/' + fileName.replace('.php', 'Test.php')
 
 				// run test for existing patch
-				const testResponse = child_process.execSync(testCommand, { cwd: projectDir, encoding: 'utf-8' });
+				vscode.window.setStatusBarMessage(`Running tests`);
+				let testResponse =''
+				try {
+					testResponse = child_process.execSync(testCommand, { cwd: projectDir, encoding: 'utf-8' });
+				} catch (error:any) {
+					console.error(`failed to run test cases: ${error.message}`);
+				}
+
+
 				if (!testResponse.includes('ERRORS!') && !testResponse.includes('FAILURES!') && testResponse.includes('OK')) {
 					vscode.window.showInformationMessage(`Can not identify a bug your code. please update your test cases.`);
 				}
