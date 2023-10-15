@@ -23,7 +23,7 @@ First build the vs code extention. Run following command  it will create a .vsix
 $ npm run build
 ```
 
-Got ot extentions, click the 'views and more action' and import the vsix file.
+Go ot extentions, click the 'views and more action' and import the vsix file.
 
 Open the buggy PHP prgram.
 
